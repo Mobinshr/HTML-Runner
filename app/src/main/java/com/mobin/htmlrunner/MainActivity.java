@@ -92,8 +92,14 @@ public class MainActivity extends Activity {
         settings.setSupportZoom(false);
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
-        settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
+        // Avoid overview-mode downscaling, which can soften canvas-based games.
+        settings.setLoadWithOverviewMode(false);
+        settings.setTextZoom(100);
+        settings.setLoadsImagesAutomatically(true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            settings.setOffscreenPreRaster(true);
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             settings.setSafeBrowsingEnabled(true);
         }
