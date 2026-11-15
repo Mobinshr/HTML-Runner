@@ -13,6 +13,7 @@ on:
       - 'gradle/**'
       - 'gradlew'
       - 'gradlew.bat'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 
 permissions:
@@ -23,35 +24,63 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Read Android app version
+        id: app_version
+        shell: bash
+        run: |
+          VERSION_NAME=$(sed -nE "s/.*versionName[[:space:]]+['\"]([^'\"]+)['\"].*/\1/p" app/build.gradle | head -n1)
+          if [ -z "$VERSION_NAME" ]; then
+            echo "Could not read versionName from app/build.gradle"
+            exit 1
+          fi
+          echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "Building HTML Runner v$VERSION_NAME"
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
-      - run: gradle assembleDebug
+
+      - name: Build APK
+        run: gradle assembleDebug
+
       - uses: actions/upload-artifact@v4
         with:
           name: HTML-Runner-APK
           path: app/build/outputs/apk/debug/app-debug.apk
-      - name: Publish APK to GitHub Releases
+
+      - name: Publish versioned APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.run_number }}-${{ github.run_attempt }}
-          name: HTML Runner build #${{ github.run_number }}
+          tag_name: ${{ steps.app_version.outputs.tag }}
+          name: HTML Runner v${{ steps.app_version.outputs.name }}
           body: |
-            Automatically generated Android APK.
-            Download app-debug.apk below and install it on your Android device.
+            ## HTML Runner v${{ steps.app_version.outputs.name }}
+
+            Latest Android APK for HTML Runner.
+
+            - **Version:** ${{ steps.app_version.outputs.name }}
+            - **Package:** com.mobin.htmlrunner
+            - **File:** app-debug.apk
+
+            Each release tag represents the app version. Rebuilding the same version updates this release instead of creating another numbered build.
           files: app/build/outputs/apk/debug/app-debug.apk
           make_latest: true
+          fail_on_unmatched_files: true
+
       - name: Keep only the latest release
         env:
           GH_TOKEN: ${{ github.token }}
+          CURRENT_TAG: ${{ steps.app_version.outputs.tag }}
         run: |
-          current_tag="build-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
           while IFS= read -r tag; do
-            if [ -n "$tag" ] && [ "$tag" != "$current_tag" ]; then
+            if [ -n "$tag" ] && [ "$tag" != "$CURRENT_TAG" ]; then
               gh release delete "$tag" --yes --cleanup-tag
             fi
           done < <(gh release list --limit 100 --json tagName --jq '.[].tagName')
