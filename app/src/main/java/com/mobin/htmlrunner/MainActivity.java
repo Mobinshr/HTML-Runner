@@ -44,22 +44,65 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
 
+        final int ink = 0xFF182230;
+        final int muted = 0xFF667085;
+        final int surface = 0xFFFFFFFF;
+        final int accent = 0xFF3659D9;
+        final int page = 0xFFF4F6FB;
+
+        getWindow().setStatusBarColor(0xFFF4F6FB);
+        getWindow().setNavigationBarColor(0xFFF4F6FB);
+        getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                        | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(page);
+        root.setPadding(dp(14), dp(8), dp(14), dp(8));
+
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.VERTICAL);
+        header.setPadding(dp(4), dp(8), dp(4), dp(12));
+
+        TextView eyebrow = new TextView(this);
+        eyebrow.setText("WEB PROJECT WORKSPACE");
+        eyebrow.setTextColor(accent);
+        eyebrow.setTextSize(10);
+        eyebrow.setLetterSpacing(0.12f);
+        eyebrow.setTypeface(null, android.graphics.Typeface.BOLD);
+
+        TextView title = new TextView(this);
+        title.setText("HTML Runner");
+        title.setTextColor(ink);
+        title.setTextSize(25);
+        title.setTypeface(null, android.graphics.Typeface.BOLD);
+        title.setPadding(0, dp(3), 0, 0);
+
+        TextView subtitle = new TextView(this);
+        subtitle.setText("پروژه‌های وب خودت را مستقیم روی گوشی اجرا کن");
+        subtitle.setTextColor(muted);
+        subtitle.setTextSize(12);
+        subtitle.setPadding(0, dp(3), 0, 0);
+
+        header.addView(eyebrow);
+        header.addView(title);
+        header.addView(subtitle);
+        root.addView(header, new LinearLayout.LayoutParams(-1, -2));
 
         LinearLayout toolbar = new LinearLayout(this);
         toolbar.setOrientation(LinearLayout.HORIZONTAL);
+        toolbar.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        toolbar.setPadding(dp(7), dp(7), dp(7), dp(7));
+        toolbar.setBackground(roundedBackground(surface, 0xFFE5E9F2, 18));
 
-        Button folderButton = new Button(this);
-        folderButton.setText("📁 پوشه پروژه");
+        Button folderButton = createActionButton("پوشه پروژه", 0xFF3659D9, 0xFFFFFFFF);
         folderButton.setOnClickListener(v -> pickProjectFolder());
 
-        Button fileButton = new Button(this);
-        fileButton.setText("📄 فایل HTML");
+        Button fileButton = createActionButton("فایل HTML", 0xFFE9EDFF, 0xFF2948B8);
         fileButton.setOnClickListener(v -> pickHtmlFile());
 
-        Button errorsButton = new Button(this);
-        errorsButton.setText("⚠ خطاها");
+        Button errorsButton = createActionButton("خطاها", 0xFFFFF0E8, 0xFF9A4D20);
         errorsButton.setOnClickListener(v -> {
             if (errorPanel != null) {
                 errorPanel.setVisibility(errorPanel.getVisibility() == View.VISIBLE
@@ -67,21 +110,34 @@ public class MainActivity extends Activity {
             }
         });
 
-        Button reloadButton = new Button(this);
-        reloadButton.setText("⟳");
+        Button reloadButton = createActionButton("↻", 0xFFF0F2F7, ink);
+        reloadButton.setTextSize(20);
         reloadButton.setContentDescription("بارگذاری مجدد");
         reloadButton.setOnClickListener(v -> {
             if (projectTree != null) web.loadUrl(PROJECT_URL);
             else web.reload();
         });
 
-        toolbar.addView(folderButton, new LinearLayout.LayoutParams(0, -2, 1));
-        toolbar.addView(fileButton, new LinearLayout.LayoutParams(0, -2, 1));
-        toolbar.addView(errorsButton, new LinearLayout.LayoutParams(-2, -2));
-        toolbar.addView(reloadButton, new LinearLayout.LayoutParams(-2, -2));
+        LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(0, dp(46), 1);
+        actionParams.setMargins(dp(3), 0, dp(3), 0);
+        toolbar.addView(folderButton, actionParams);
+        toolbar.addView(fileButton, actionParams);
+        toolbar.addView(errorsButton, actionParams);
+        LinearLayout.LayoutParams reloadParams = new LinearLayout.LayoutParams(dp(48), dp(46));
+        reloadParams.setMargins(dp(3), 0, dp(3), 0);
+        toolbar.addView(reloadButton, reloadParams);
         root.addView(toolbar, new LinearLayout.LayoutParams(-1, -2));
 
+        TextView previewLabel = new TextView(this);
+        previewLabel.setText("پیش‌نمایش");
+        previewLabel.setTextColor(ink);
+        previewLabel.setTextSize(13);
+        previewLabel.setTypeface(null, android.graphics.Typeface.BOLD);
+        previewLabel.setPadding(dp(4), dp(12), dp(4), dp(7));
+        root.addView(previewLabel, new LinearLayout.LayoutParams(-1, -2));
+
         web = new WebView(this);
+        web.setBackgroundColor(0xFFFFFFFF);
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -93,7 +149,7 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
         settings.setUseWideViewPort(true);
-        // Avoid overview-mode downscaling, which can soften canvas-based games.
+        // Keep native viewport sizing; avoid overview-mode downscaling that can soften canvas games.
         settings.setLoadWithOverviewMode(false);
         settings.setTextZoom(100);
         settings.setLoadsImagesAutomatically(true);
@@ -105,6 +161,7 @@ public class MainActivity extends Activity {
         }
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
         web.setHorizontalScrollBarEnabled(false);
+        web.setVerticalScrollBarEnabled(true);
         web.setWebViewClient(new ProjectWebViewClient());
         web.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -116,18 +173,27 @@ public class MainActivity extends Activity {
             }
         });
         web.getSettings().setSupportMultipleWindows(false);
-        root.addView(web, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        LinearLayout previewFrame = new LinearLayout(this);
+        previewFrame.setOrientation(LinearLayout.VERTICAL);
+        previewFrame.setBackground(roundedBackground(surface, 0xFFE1E6EF, 18));
+        previewFrame.setClipToOutline(true);
+        previewFrame.addView(web, new LinearLayout.LayoutParams(-1, -1));
+        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(-1, 0, 1);
+        previewParams.bottomMargin = dp(6);
+        root.addView(previewFrame, previewParams);
 
         ScrollView errorScroll = new ScrollView(this);
         errorPanel = new TextView(this);
-        errorPanel.setText("خطاهای JavaScript اینجا نمایش داده می‌شوند.");
+        errorPanel.setText("هنوز خطای JavaScript ثبت نشده است.");
         errorPanel.setTextSize(12);
-        errorPanel.setTextColor(0xFFFFB4AB);
-        errorPanel.setBackgroundColor(0xFF202124);
-        errorPanel.setPadding(16, 12, 16, 12);
+        errorPanel.setTextColor(0xFFFFDAD4);
+        errorPanel.setBackground(roundedBackground(0xFF202938, 0xFF202938, 14));
+        errorPanel.setPadding(dp(14), dp(12), dp(14), dp(12));
+        errorScroll.setPadding(0, dp(6), 0, 0);
         errorScroll.addView(errorPanel);
         errorScroll.setVisibility(View.GONE);
-        root.addView(errorScroll, new LinearLayout.LayoutParams(-1, 120));
+        root.addView(errorScroll, new LinearLayout.LayoutParams(-1, dp(112)));
 
         setContentView(root);
 
@@ -137,6 +203,35 @@ public class MainActivity extends Activity {
         } else {
             restoreProject();
         }
+    }
+
+    private int dp(float value) {
+        return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
+    }
+
+    private android.graphics.drawable.GradientDrawable roundedBackground(
+            int fill, int stroke, int radiusDp) {
+        android.graphics.drawable.GradientDrawable drawable =
+                new android.graphics.drawable.GradientDrawable();
+        drawable.setColor(fill);
+        drawable.setCornerRadius(dp(radiusDp));
+        drawable.setStroke(dp(1), stroke);
+        return drawable;
+    }
+
+    private Button createActionButton(String label, int background, int foreground) {
+        Button button = new Button(this);
+        button.setText(label);
+        button.setTextColor(foreground);
+        button.setTextSize(12);
+        button.setAllCaps(false);
+        button.setTypeface(null, android.graphics.Typeface.BOLD);
+        button.setGravity(android.view.Gravity.CENTER);
+        button.setMinHeight(0);
+        button.setMinimumHeight(0);
+        button.setPadding(dp(5), 0, dp(5), 0);
+        button.setBackground(roundedBackground(background, background, 13));
+        return button;
     }
 
     @Override
