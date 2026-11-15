@@ -47,13 +47,25 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Build APK
-        run: gradle assembleDebug
+      - name: Prepare permanent signing key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mobin-apps-release.jks"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/mobin-apps-release.jks" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: gradle assembleRelease
 
       - uses: actions/upload-artifact@v4
         with:
           name: HTML-Runner-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/release/app-release.apk
 
       - name: Publish versioned APK release
         uses: softprops/action-gh-release@v2
@@ -67,10 +79,10 @@ jobs:
 
             - **Version:** ${{ steps.app_version.outputs.name }}
             - **Package:** com.mobin.htmlrunner
-            - **File:** app-debug.apk
+            - **File:** app-release.apk
 
             Each release tag represents the app version. Rebuilding the same version updates this release instead of creating another numbered build.
-          files: app/build/outputs/apk/debug/app-debug.apk
+          files: app/build/outputs/apk/release/app-release.apk
           make_latest: true
           fail_on_unmatched_files: true
 
