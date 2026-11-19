@@ -26,6 +26,10 @@
 
 **HTML Runner** is a simple Android application that lets you select an HTML file stored on your device and open it inside the app. It uses Android WebView to display the page and run its web content.
 
+## 🎨 App icon
+
+- Minimal navy-and-cyan launcher icon with a white code symbol.
+
 ## ✨ Features
 
 - 🖥️ Full-screen, edge-to-edge web execution with no in-app toolbar or preview chrome.
