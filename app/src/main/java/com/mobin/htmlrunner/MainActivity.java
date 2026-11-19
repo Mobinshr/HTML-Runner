@@ -1,25 +1,27 @@
 package com.mobin.htmlrunner;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Build;
 import android.provider.DocumentsContract;
+import android.util.Log;
 import android.view.View;
+import android.view.WindowManager;
+import android.webkit.GeolocationPermissions;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
-import android.widget.Toast;
+import android.widget.FrameLayout;
 
 import java.io.InputStream;
 import java.io.ByteArrayOutputStream;
@@ -30,117 +32,44 @@ import java.util.Map;
 public class MainActivity extends Activity {
     private static final int PICK_FILE = 1;
     private static final int PICK_FOLDER = 2;
+    private static final int PICK_WEB_FILE = 3;
+    private static final int REQUEST_LOCATION = 41;
     private static final String PROJECT_HOST = "htmlrunner.local";
     private static final String PROJECT_URL = "https://" + PROJECT_HOST + "/index.html";
     private static final String PREFS = "html_runner";
     private static final String PROJECT_URI = "project_tree_uri";
 
     private WebView web;
+    private FrameLayout root;
     private Uri projectTree;
-    private TextView errorPanel;
-    private final StringBuilder consoleErrors = new StringBuilder();
+    private boolean hasProjectContent;
+    private boolean pickerOpen;
+    private long blankTouchStart;
+    private ValueCallback<Uri[]> filePathCallback;
+    private View customView;
+    private WebChromeClient.CustomViewCallback customViewCallback;
+    private GeolocationPermissions.Callback pendingGeoCallback;
+    private String pendingGeoOrigin;
 
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
 
-        final int ink = 0xFF182230;
-        final int muted = 0xFF667085;
-        final int surface = 0xFFFFFFFF;
-        final int accent = 0xFF3659D9;
-        final int page = 0xFFF4F6FB;
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        applyImmersiveMode();
 
-        getWindow().setStatusBarColor(0xFFF4F6FB);
-        getWindow().setNavigationBarColor(0xFFF4F6FB);
-        getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-                        | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
-
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(page);
-        root.setPadding(dp(14), dp(8), dp(14), dp(8));
-
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.VERTICAL);
-        header.setPadding(dp(4), dp(8), dp(4), dp(12));
-
-        TextView eyebrow = new TextView(this);
-        eyebrow.setText("WEB PROJECT WORKSPACE");
-        eyebrow.setTextColor(accent);
-        eyebrow.setTextSize(10);
-        eyebrow.setLetterSpacing(0.12f);
-        eyebrow.setTypeface(null, android.graphics.Typeface.BOLD);
-
-        TextView title = new TextView(this);
-        title.setText("HTML Runner");
-        title.setTextColor(ink);
-        title.setTextSize(25);
-        title.setTypeface(null, android.graphics.Typeface.BOLD);
-        title.setPadding(0, dp(3), 0, 0);
-
-        TextView subtitle = new TextView(this);
-        subtitle.setText("پروژه‌های وب خودت را مستقیم روی گوشی اجرا کن");
-        subtitle.setTextColor(muted);
-        subtitle.setTextSize(12);
-        subtitle.setPadding(0, dp(3), 0, 0);
-
-        header.addView(eyebrow);
-        header.addView(title);
-        header.addView(subtitle);
-        root.addView(header, new LinearLayout.LayoutParams(-1, -2));
-
-        LinearLayout toolbar = new LinearLayout(this);
-        toolbar.setOrientation(LinearLayout.HORIZONTAL);
-        toolbar.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        toolbar.setPadding(dp(7), dp(7), dp(7), dp(7));
-        toolbar.setBackground(roundedBackground(surface, 0xFFE5E9F2, 18));
-
-        Button folderButton = createActionButton("پوشه پروژه", 0xFF3659D9, 0xFFFFFFFF);
-        folderButton.setOnClickListener(v -> pickProjectFolder());
-
-        Button fileButton = createActionButton("فایل HTML", 0xFFE9EDFF, 0xFF2948B8);
-        fileButton.setOnClickListener(v -> pickHtmlFile());
-
-        Button errorsButton = createActionButton("خطاها", 0xFFFFF0E8, 0xFF9A4D20);
-        errorsButton.setOnClickListener(v -> {
-            if (errorPanel != null) {
-                errorPanel.setVisibility(errorPanel.getVisibility() == View.VISIBLE
-                        ? View.GONE : View.VISIBLE);
-            }
-        });
-
-        Button reloadButton = createActionButton("↻", 0xFFF0F2F7, ink);
-        reloadButton.setTextSize(20);
-        reloadButton.setContentDescription("بارگذاری مجدد");
-        reloadButton.setOnClickListener(v -> {
-            if (projectTree != null) web.loadUrl(PROJECT_URL);
-            else web.reload();
-        });
-
-        LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(0, dp(46), 1);
-        actionParams.setMargins(dp(3), 0, dp(3), 0);
-        toolbar.addView(folderButton, actionParams);
-        toolbar.addView(fileButton, actionParams);
-        toolbar.addView(errorsButton, actionParams);
-        LinearLayout.LayoutParams reloadParams = new LinearLayout.LayoutParams(dp(48), dp(46));
-        reloadParams.setMargins(dp(3), 0, dp(3), 0);
-        toolbar.addView(reloadButton, reloadParams);
-        root.addView(toolbar, new LinearLayout.LayoutParams(-1, -2));
-
-        TextView previewLabel = new TextView(this);
-        previewLabel.setText("پیش‌نمایش");
-        previewLabel.setTextColor(ink);
-        previewLabel.setTextSize(13);
-        previewLabel.setTypeface(null, android.graphics.Typeface.BOLD);
-        previewLabel.setPadding(dp(4), dp(12), dp(4), dp(7));
-        root.addView(previewLabel, new LinearLayout.LayoutParams(-1, -2));
-
+        root = new FrameLayout(this);
+        root.setBackgroundColor(0xFF000000);
         web = new WebView(this);
-        web.setBackgroundColor(0xFFFFFFFF);
+        web.setBackgroundColor(0xFF000000);
+        root.addView(web, new FrameLayout.LayoutParams(-1, -1));
+        setContentView(root);
+
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
+        settings.setDatabaseEnabled(true);
+        settings.setGeolocationEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
@@ -149,7 +78,6 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
         settings.setUseWideViewPort(true);
-        // Keep native viewport sizing; avoid overview-mode downscaling that can soften canvas games.
         settings.setLoadWithOverviewMode(false);
         settings.setTextZoom(100);
         settings.setLoadsImagesAutomatically(true);
@@ -159,10 +87,12 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             settings.setSafeBrowsingEnabled(true);
         }
+
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
         web.setHorizontalScrollBarEnabled(false);
-        web.setVerticalScrollBarEnabled(true);
+        web.setVerticalScrollBarEnabled(false);
         web.setWebViewClient(new ProjectWebViewClient());
+        web.getSettings().setSupportMultipleWindows(false);
         web.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onConsoleMessage(android.webkit.ConsoleMessage message) {
@@ -171,67 +101,135 @@ public class MainActivity extends Activity {
                 }
                 return true;
             }
+
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
+                                             FileChooserParams params) {
+                if (filePathCallback != null) filePathCallback.onReceiveValue(null);
+                filePathCallback = callback;
+                try {
+                    pickerOpen = true;
+                    startActivityForResult(params.createIntent(), PICK_WEB_FILE);
+                    return true;
+                } catch (Exception e) {
+                    pickerOpen = false;
+                    filePathCallback = null;
+                    return false;
+                }
+            }
+
+            @Override
+            public void onShowCustomView(View view, CustomViewCallback callback) {
+                if (customView != null) {
+                    callback.onCustomViewHidden();
+                    return;
+                }
+                customView = view;
+                customViewCallback = callback;
+                web.setVisibility(View.GONE);
+                root.addView(customView, new FrameLayout.LayoutParams(-1, -1));
+                applyImmersiveMode();
+            }
+
+            @Override
+            public void onHideCustomView() {
+                hideCustomView();
+            }
+
+            @Override
+            public void onGeolocationPermissionsShowPrompt(
+                    String origin, GeolocationPermissions.Callback callback) {
+                requestWebLocation(origin, callback);
+            }
         });
-        web.getSettings().setSupportMultipleWindows(false);
 
-        LinearLayout previewFrame = new LinearLayout(this);
-        previewFrame.setOrientation(LinearLayout.VERTICAL);
-        previewFrame.setBackground(roundedBackground(surface, 0xFFE1E6EF, 18));
-        previewFrame.setClipToOutline(true);
-        previewFrame.addView(web, new LinearLayout.LayoutParams(-1, -1));
-        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(-1, 0, 1);
-        previewParams.bottomMargin = dp(6);
-        root.addView(previewFrame, previewParams);
-
-        ScrollView errorScroll = new ScrollView(this);
-        errorPanel = new TextView(this);
-        errorPanel.setText("هنوز خطای JavaScript ثبت نشده است.");
-        errorPanel.setTextSize(12);
-        errorPanel.setTextColor(0xFFFFDAD4);
-        errorPanel.setBackground(roundedBackground(0xFF202938, 0xFF202938, 14));
-        errorPanel.setPadding(dp(14), dp(12), dp(14), dp(12));
-        errorScroll.setPadding(0, dp(6), 0, 0);
-        errorScroll.addView(errorPanel);
-        errorScroll.setVisibility(View.GONE);
-        root.addView(errorScroll, new LinearLayout.LayoutParams(-1, dp(112)));
-
-        setContentView(root);
+        // No in-app controls: short tap on the empty surface picks a folder;
+        // long press picks one HTML file.
+        web.setOnTouchListener((view, event) -> {
+            if (!hasProjectContent && !pickerOpen) {
+                if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+                    blankTouchStart = System.currentTimeMillis();
+                } else if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
+                    if (System.currentTimeMillis() - blankTouchStart >= 550) pickHtmlFile();
+                    else pickProjectFolder();
+                }
+            }
+            return false;
+        });
 
         Uri incoming = getIncomingHtmlUri(getIntent());
-        if (incoming != null) {
-            loadSingleHtmlFile(incoming);
-        } else {
-            restoreProject();
+        if (incoming != null) loadSingleHtmlFile(incoming);
+        else restoreProject();
+    }
+
+    private void applyImmersiveMode() {
+        int flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+        getWindow().getDecorView().setSystemUiVisibility(flags);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) applyImmersiveMode();
+    }
+
+    private void hideCustomView() {
+        if (customView == null) return;
+        root.removeView(customView);
+        customView = null;
+        web.setVisibility(View.VISIBLE);
+        if (customViewCallback != null) {
+            customViewCallback.onCustomViewHidden();
+            customViewCallback = null;
         }
+        applyImmersiveMode();
     }
 
-    private int dp(float value) {
-        return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
+    private void requestWebLocation(String origin, GeolocationPermissions.Callback callback) {
+        Uri parsed = Uri.parse(origin);
+        if (!"https".equalsIgnoreCase(parsed.getScheme())
+                || !PROJECT_HOST.equalsIgnoreCase(parsed.getHost())) {
+            callback.invoke(origin, false, false);
+            return;
+        }
+        boolean granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+                || checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED
+                || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED;
+        if (granted) {
+            callback.invoke(origin, true, false);
+            return;
+        }
+        if (pendingGeoCallback != null) {
+            pendingGeoCallback.invoke(pendingGeoOrigin, false, false);
+        }
+        pendingGeoOrigin = origin;
+        pendingGeoCallback = callback;
+        requestPermissions(new String[]{
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+        }, REQUEST_LOCATION);
     }
 
-    private android.graphics.drawable.GradientDrawable roundedBackground(
-            int fill, int stroke, int radiusDp) {
-        android.graphics.drawable.GradientDrawable drawable =
-                new android.graphics.drawable.GradientDrawable();
-        drawable.setColor(fill);
-        drawable.setCornerRadius(dp(radiusDp));
-        drawable.setStroke(dp(1), stroke);
-        return drawable;
-    }
-
-    private Button createActionButton(String label, int background, int foreground) {
-        Button button = new Button(this);
-        button.setText(label);
-        button.setTextColor(foreground);
-        button.setTextSize(12);
-        button.setAllCaps(false);
-        button.setTypeface(null, android.graphics.Typeface.BOLD);
-        button.setGravity(android.view.Gravity.CENTER);
-        button.setMinHeight(0);
-        button.setMinimumHeight(0);
-        button.setPadding(dp(5), 0, dp(5), 0);
-        button.setBackground(roundedBackground(background, background, 13));
-        return button;
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                                           int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQUEST_LOCATION || pendingGeoCallback == null) return;
+        boolean granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+                || checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED
+                || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED;
+        pendingGeoCallback.invoke(pendingGeoOrigin, granted, false);
+        pendingGeoCallback = null;
+        pendingGeoOrigin = null;
     }
 
     @Override
@@ -243,19 +241,8 @@ public class MainActivity extends Activity {
     }
 
     private void recordConsoleError(String message, String source, int line) {
-        String entry = "خط " + line + " | " + message
-                + (source == null || source.isEmpty() ? "" : "\\n" + source);
-        consoleErrors.append(entry).append("\\n\\n");
-        String[] entries = consoleErrors.toString().split("\\n\\n");
-        if (entries.length > 30) {
-            consoleErrors.setLength(0);
-            for (int i = entries.length - 30; i < entries.length; i++) {
-                consoleErrors.append(entries[i]).append("\\n\\n");
-            }
-        }
-        runOnUiThread(() -> {
-            if (errorPanel != null) errorPanel.setText(consoleErrors.toString());
-        });
+        Log.e("HTMLRunner", "JavaScript error at line " + line + ": " + message
+                + (source == null || source.isEmpty() ? "" : " [" + source + "]"));
     }
 
     private Uri getIncomingHtmlUri(Intent intent) {
@@ -283,24 +270,48 @@ public class MainActivity extends Activity {
     }
 
     private void pickProjectFolder() {
+        if (pickerOpen) return;
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
                 | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-        startActivityForResult(intent, PICK_FOLDER);
+        try {
+            pickerOpen = true;
+            startActivityForResult(intent, PICK_FOLDER);
+        } catch (Exception e) {
+            pickerOpen = false;
+        }
     }
 
     private void pickHtmlFile() {
+        if (pickerOpen) return;
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("text/html");
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
                 | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-        startActivityForResult(intent, PICK_FILE);
+        try {
+            pickerOpen = true;
+            startActivityForResult(intent, PICK_FILE);
+        } catch (Exception e) {
+            pickerOpen = false;
+        }
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == PICK_WEB_FILE) {
+            pickerOpen = false;
+            if (filePathCallback != null) {
+                Uri[] results = WebChromeClient.FileChooserParams.parseResult(resultCode, data);
+                filePathCallback.onReceiveValue(results);
+                filePathCallback = null;
+            }
+            return;
+        }
+
+        if (requestCode == PICK_FOLDER || requestCode == PICK_FILE) pickerOpen = false;
         if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
 
         Uri selected = data.getData();
@@ -310,11 +321,14 @@ public class MainActivity extends Activity {
             try {
                 getContentResolver().takePersistableUriPermission(selected, flags);
                 projectTree = selected;
+                hasProjectContent = true;
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit()
                         .putString(PROJECT_URI, selected.toString()).apply();
                 web.loadUrl(PROJECT_URL);
             } catch (SecurityException e) {
-                Toast.makeText(this, "دسترسی به پوشه ذخیره نشد", Toast.LENGTH_LONG).show();
+                projectTree = null;
+                hasProjectContent = false;
+                showBlankSurface();
             }
         } else if (requestCode == PICK_FILE) {
             try {
@@ -333,17 +347,20 @@ public class MainActivity extends Activity {
         if (saved != null) {
             try {
                 projectTree = Uri.parse(saved);
+                hasProjectContent = true;
                 web.loadUrl(PROJECT_URL);
                 return;
             } catch (Exception ignored) {
                 projectTree = null;
             }
         }
-        showHome();
+        showBlankSurface();
+        pickProjectFolder();
     }
 
     private void loadSingleHtmlFile(Uri uri) {
         projectTree = null;
+        hasProjectContent = true;
         try (InputStream input = getContentResolver().openInputStream(uri);
              ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             if (input == null) throw new IllegalStateException("Unable to open file");
@@ -353,8 +370,9 @@ public class MainActivity extends Activity {
             web.loadDataWithBaseURL("https://" + PROJECT_HOST + "/",
                     output.toString("UTF-8"), "text/html", "UTF-8", null);
         } catch (Exception e) {
-            Toast.makeText(this, "فایل HTML باز نشد", Toast.LENGTH_LONG).show();
-            showHome();
+            Log.e("HTMLRunner", "Could not open HTML document", e);
+            hasProjectContent = false;
+            showBlankSurface();
         }
     }
 
@@ -462,17 +480,12 @@ public class MainActivity extends Activity {
                 "Project file not found".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
     }
 
-    private void showHome() {
-        String html = "<!doctype html><html lang='fa' dir='rtl'><meta charset='utf-8'>"
-                + "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-                + "<body style='font-family:sans-serif;background:#101827;color:#f8fafc;"
-                + "min-height:90vh;display:grid;place-items:center;text-align:center;padding:24px'>"
-                + "<main><div style='font-size:64px'>🌐</div><h2>HTML Runner</h2>"
-                + "<p>برای اجرای یک پروژه وب، پوشه‌ای را انتخاب کن که فایل index.html دارد.</p>"
-                + "<p style='color:#94a3b8'>فایل‌های CSS، JavaScript و تصاویر داخل همان پوشه نیز بارگذاری می‌شوند.</p>"
-                + "</main></body></html>";
-        web.loadDataWithBaseURL("https://" + PROJECT_HOST + "/", html,
-                "text/html", "UTF-8", null);
+    private void showBlankSurface() {
+        hasProjectContent = false;
+        String blank = "<!doctype html><html><head><meta name='viewport' "
+                + "content='width=device-width,initial-scale=1,maximum-scale=1'></head>"
+                + "<body style='margin:0;background:#000'></body></html>";
+        web.loadDataWithBaseURL(PROJECT_URL, blank, "text/html", "UTF-8", null);
     }
 
     private class ProjectWebViewClient extends WebViewClient {
@@ -517,10 +530,20 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (web != null) web.onResume();
+        applyImmersiveMode();
     }
 
     @Override
     protected void onDestroy() {
+        if (filePathCallback != null) {
+            filePathCallback.onReceiveValue(null);
+            filePathCallback = null;
+        }
+        if (pendingGeoCallback != null) {
+            pendingGeoCallback.invoke(pendingGeoOrigin, false, false);
+            pendingGeoCallback = null;
+            pendingGeoOrigin = null;
+        }
         if (web != null) {
             web.stopLoading();
             web.loadUrl("about:blank");
@@ -537,7 +560,8 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (web != null && web.canGoBack()) web.goBack();
+        if (customView != null) hideCustomView();
+        else if (web != null && web.canGoBack()) web.goBack();
         else super.onBackPressed();
     }
 }
