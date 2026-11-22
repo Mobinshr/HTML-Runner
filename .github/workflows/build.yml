@@ -19,6 +19,11 @@ on:
 permissions:
   contents: write
 
+# Serialize release publishing so overlapping pushes cannot delete a newer release.
+concurrency:
+  group: html-runner-release
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
