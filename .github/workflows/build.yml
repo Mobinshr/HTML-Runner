@@ -76,6 +76,27 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: gradle assembleRelease
 
+      - name: Verify APK package, launcher icon, and signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$SDK_ROOT"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n1)"
+          AAPT="$(find "$SDK_ROOT/build-tools" -type f -name aapt | sort -V | tail -n1)"
+          test -x "$APKSIGNER"
+          test -x "$AAPT"
+
+          "$APKSIGNER" verify --verbose "$APK"
+          "$AAPT" dump badging "$APK" > "$RUNNER_TEMP/html-runner-badging.txt"
+          grep -F "package: name='com.mobin.htmlrunner' versionCode='5' versionName='1.0.3'" "$RUNNER_TEMP/html-runner-badging.txt"
+          grep -E "^application: .*icon='res/" "$RUNNER_TEMP/html-runner-badging.txt"
+          echo "APK archive, app identity, launcher icon resource, and signing certificate verified."
+
       - uses: actions/upload-artifact@v4
         with:
           name: HTML-Runner-APK

@@ -10,11 +10,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Mobinshr/HtmlRunner1/actions/workflows/build.yml">
-    <img src="https://github.com/Mobinshr/HtmlRunner1/actions/workflows/build.yml/badge.svg" alt="Build APK">
+  <a href="https://github.com/Mobinshr/HtmlRunner/actions/workflows/build.yml">
+    <img src="https://github.com/Mobinshr/HtmlRunner/actions/workflows/build.yml/badge.svg" alt="Build APK">
   </a>
-  <a href="https://github.com/Mobinshr/HtmlRunner1/releases">
-    <img src="https://img.shields.io/github/v/release/Mobinshr/HtmlRunner1?display_name=tag" alt="Latest release">
+  <a href="https://github.com/Mobinshr/HtmlRunner/releases">
+    <img src="https://img.shields.io/github/v/release/Mobinshr/HtmlRunner?display_name=tag" alt="Latest release">
   </a>
   <img src="https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white" alt="Android">
   <img src="https://img.shields.io/badge/license-not_specified-lightgrey" alt="License not specified">
@@ -43,7 +43,7 @@
 
 ## ⬇️ Download
 
-**[Download the latest APK from GitHub Releases](https://github.com/Mobinshr/HtmlRunner1/releases/latest)**
+**[Download the latest APK from GitHub Releases](https://github.com/Mobinshr/HtmlRunner/releases/latest)**
 
 1. Open the Releases page using the link above.
 2. Download `app-release.apk` from the latest release.
@@ -94,9 +94,9 @@ The workflow is located at [`.github/workflows/build.yml`](.github/workflows/bui
 
 Useful links:
 
-- [Build history](https://github.com/Mobinshr/HtmlRunner1/actions)
-- [Latest APK release](https://github.com/Mobinshr/HtmlRunner1/releases/latest)
-- [All releases](https://github.com/Mobinshr/HtmlRunner1/releases)
+- [Build history](https://github.com/Mobinshr/HtmlRunner/actions)
+- [Latest APK release](https://github.com/Mobinshr/HtmlRunner/releases/latest)
+- [All releases](https://github.com/Mobinshr/HtmlRunner/releases)
 
 ## 📁 Project structure
 
