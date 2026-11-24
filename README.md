@@ -10,11 +10,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Mobinshr/HtmlRunner/actions/workflows/build.yml">
-    <img src="https://github.com/Mobinshr/HtmlRunner/actions/workflows/build.yml/badge.svg" alt="Build APK">
+  <a href="https://github.com/Mobinshr/HTML-Runner/actions/workflows/build.yml">
+    <img src="https://github.com/Mobinshr/HTML-Runner/actions/workflows/build.yml/badge.svg" alt="Build APK">
   </a>
-  <a href="https://github.com/Mobinshr/HtmlRunner/releases">
-    <img src="https://img.shields.io/github/v/release/Mobinshr/HtmlRunner?display_name=tag" alt="Latest release">
+  <a href="https://github.com/Mobinshr/HTML-Runner/releases">
+    <img src="https://img.shields.io/github/v/release/Mobinshr/HTML-Runner?display_name=tag" alt="Latest release">
   </a>
   <img src="https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white" alt="Android">
   <img src="https://img.shields.io/badge/license-not_specified-lightgrey" alt="License not specified">
@@ -24,7 +24,7 @@
 
 ## 📱 About
 
-**HTML Runner** is a simple Android application that lets you select an HTML file stored on your device and open it inside the app. It uses Android WebView to display the page and run its web content.
+**HTML Runner** is an Android application for opening local HTML files and web projects inside a full-screen WebView.
 
 ## 🎨 App icon
 
@@ -37,13 +37,13 @@
 - 🌐 Display HTML pages using Android WebView.
 - ⚡ JavaScript, DOM storage, local project assets, HTML file inputs, and full-screen media support.
 - 📍 Geolocation support for the local project origin after Android permission is granted.
-- 📦 Download installable debug APK builds from GitHub.
-- 🤖 Automatically build an APK with GitHub Actions whenever code is pushed, or when the workflow is started manually.
-- 🚀 Publish successful builds to the GitHub Releases page.
+- 📦 Download the signed release APK from GitHub Releases.
+- 🤖 Automatically build an APK with GitHub Actions whenever relevant app or build files change, or when the workflow is started manually.
+- 🚀 Publish successful builds to GitHub Releases.
 
 ## ⬇️ Download
 
-**[Download the latest APK from GitHub Releases](https://github.com/Mobinshr/HtmlRunner/releases/latest)**
+**[Download the latest APK from GitHub Releases](https://github.com/Mobinshr/HTML-Runner/releases/latest)**
 
 1. Open the Releases page using the link above.
 2. Download `app-release.apk` from the latest release.
@@ -83,20 +83,41 @@ The APK is generated at:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
+### Build a signed release APK
+
+The release build requires the signing environment variables used by GitHub Actions:
+
+- `ANDROID_KEYSTORE_PATH`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+Then run:
+
+```bash
+gradle assembleRelease
+```
+
+The APK is generated at:
+
+```
+app/build/outputs/apk/release/app-release.apk
+```
+
 ## ⚙️ Automatic builds
 
 The workflow is located at [`.github/workflows/build.yml`](.github/workflows/build.yml).
 
-- Every push to the repository triggers an APK build.
+- Relevant app and build-file changes pushed to `main` trigger an APK build.
 - You can also start a build manually from the **Actions** tab.
-- The generated APK is uploaded as an Actions artifact.
-- Successful builds are also published to **GitHub Releases**.
+- The generated signed APK is uploaded as an Actions artifact.
+- Successful builds are published to GitHub Releases using a versioned tag.
 
 Useful links:
 
-- [Build history](https://github.com/Mobinshr/HtmlRunner/actions)
-- [Latest APK release](https://github.com/Mobinshr/HtmlRunner/releases/latest)
-- [All releases](https://github.com/Mobinshr/HtmlRunner/releases)
+- [Build history](https://github.com/Mobinshr/HTML-Runner/actions)
+- [Latest APK release](https://github.com/Mobinshr/HTML-Runner/releases/latest)
+- [All releases](https://github.com/Mobinshr/HTML-Runner/releases)
 
 ## 📁 Project structure
 
