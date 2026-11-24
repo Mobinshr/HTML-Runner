@@ -34,14 +34,22 @@ jobs:
         id: app_version
         shell: bash
         run: |
-          VERSION_NAME=$(sed -nE "s/.*versionName[[:space:]]+['\"]([^'\"]+)['\"].*/\1/p" app/build.gradle | head -n1)
+          VERSION_CODE=$(sed -nE "s/.*versionCode[[:space:]]+([0-9]+).*/\\1/p" app/build.gradle | head -n1)
+          VERSION_NAME=$(sed -nE "s/.*versionName[[:space:]]+['\"]([^'\"]+)['\"].*/\\1/p" app/build.gradle | head -n1)
+
+          if [ -z "$VERSION_CODE" ]; then
+            echo "Could not read versionCode from app/build.gradle"
+            exit 1
+          fi
           if [ -z "$VERSION_NAME" ]; then
             echo "Could not read versionName from app/build.gradle"
             exit 1
           fi
+
+          echo "code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
           echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION_NAME" >> "$GITHUB_OUTPUT"
-          echo "Building HTML Runner v$VERSION_NAME"
+          echo "Building HTML Runner v$VERSION_NAME (versionCode $VERSION_CODE)"
 
       - uses: actions/setup-java@v4
         with:
@@ -78,6 +86,9 @@ jobs:
 
       - name: Verify APK package, launcher icon, and signature
         shell: bash
+        env:
+          EXPECTED_VERSION_CODE: ${{ steps.app_version.outputs.code }}
+          EXPECTED_VERSION_NAME: ${{ steps.app_version.outputs.name }}
         run: |
           set -euo pipefail
           APK="app/build/outputs/apk/release/app-release.apk"
@@ -93,7 +104,7 @@ jobs:
 
           "$APKSIGNER" verify --verbose "$APK"
           "$AAPT" dump badging "$APK" > "$RUNNER_TEMP/html-runner-badging.txt"
-          grep -F "package: name='com.mobin.htmlrunner' versionCode='5' versionName='1.0.3'" "$RUNNER_TEMP/html-runner-badging.txt"
+          grep -F "package: name='com.mobin.htmlrunner' versionCode='$EXPECTED_VERSION_CODE' versionName='$EXPECTED_VERSION_NAME'" "$RUNNER_TEMP/html-runner-badging.txt"
           grep -E "^application: .*icon='res/" "$RUNNER_TEMP/html-runner-badging.txt"
           echo "APK archive, app identity, launcher icon resource, and signing certificate verified."
 
