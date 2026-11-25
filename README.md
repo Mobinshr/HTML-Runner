@@ -28,7 +28,7 @@
 
 ## 🎨 App icon
 
-- Minimal navy-and-cyan launcher icon with a white code symbol.
+- Blue globe, white play symbol, and HTML5 badge launcher artwork.
 
 ## ✨ Features
 
