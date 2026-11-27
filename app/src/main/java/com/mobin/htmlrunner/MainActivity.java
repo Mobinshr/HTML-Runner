@@ -465,7 +465,7 @@ public class MainActivity extends Activity {
     }
 
     private Uri findChildDocument(Uri parent, String displayName) {
-        String cacheKey = parent.toString() + "\u0000" + displayName;
+        String cacheKey = parent.toString() + "::" + displayName;
         Uri cached = projectDocumentCache.get(cacheKey);
         if (cached != null) return cached;
 
