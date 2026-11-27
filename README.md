@@ -144,3 +144,11 @@ Suggestions, bug reports, and improvements are welcome. Please open an issue bef
 <p align="center">
   Made with ❤️ by <a href="https://github.com/Mobinshr">Mobinshr</a>
 </p>
+
+
+## Performance and safety notes (1.2.1)
+
+- Opening a standalone HTML document is performed on a background executor, not on the UI thread.
+- Standalone HTML files are limited to 5 MB to avoid excessive memory use on lower-memory devices.
+- SAF directory lookups are cached for the active project and cleared when the project changes.
+- Release builds enable R8 code shrinking and resource shrinking.

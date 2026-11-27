@@ -8,6 +8,8 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Build;
 import android.provider.DocumentsContract;
 import android.util.Log;
@@ -28,6 +30,9 @@ import java.io.ByteArrayOutputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
     private static final int PICK_FILE = 1;
@@ -38,6 +43,7 @@ public class MainActivity extends Activity {
     private static final String PROJECT_URL = "https://" + PROJECT_HOST + "/index.html";
     private static final String PREFS = "html_runner";
     private static final String PROJECT_URI = "project_tree_uri";
+    private static final int MAX_SINGLE_HTML_BYTES = 5 * 1024 * 1024;
 
     private WebView web;
     private FrameLayout root;
@@ -50,6 +56,10 @@ public class MainActivity extends Activity {
     private WebChromeClient.CustomViewCallback customViewCallback;
     private GeolocationPermissions.Callback pendingGeoCallback;
     private String pendingGeoOrigin;
+    private final ExecutorService fileExecutor = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Map<String, Uri> projectDocumentCache = new ConcurrentHashMap<>();
+    private int fileLoadGeneration;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -320,13 +330,16 @@ public class MainActivity extends Activity {
                     | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
             try {
                 getContentResolver().takePersistableUriPermission(selected, flags);
+                fileLoadGeneration++;
                 projectTree = selected;
+                projectDocumentCache.clear();
                 hasProjectContent = true;
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit()
                         .putString(PROJECT_URI, selected.toString()).apply();
                 web.loadUrl(PROJECT_URL);
             } catch (SecurityException e) {
                 projectTree = null;
+                projectDocumentCache.clear();
                 hasProjectContent = false;
                 showBlankSurface();
             }
@@ -346,12 +359,15 @@ public class MainActivity extends Activity {
         String saved = prefs.getString(PROJECT_URI, null);
         if (saved != null) {
             try {
+                fileLoadGeneration++;
                 projectTree = Uri.parse(saved);
+                projectDocumentCache.clear();
                 hasProjectContent = true;
                 web.loadUrl(PROJECT_URL);
                 return;
             } catch (Exception ignored) {
                 projectTree = null;
+                projectDocumentCache.clear();
             }
         }
         showBlankSurface();
@@ -360,20 +376,42 @@ public class MainActivity extends Activity {
 
     private void loadSingleHtmlFile(Uri uri) {
         projectTree = null;
+        projectDocumentCache.clear();
         hasProjectContent = true;
-        try (InputStream input = getContentResolver().openInputStream(uri);
-             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            if (input == null) throw new IllegalStateException("Unable to open file");
-            byte[] buffer = new byte[8192];
-            int count;
-            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
-            web.loadDataWithBaseURL("https://" + PROJECT_HOST + "/",
-                    output.toString("UTF-8"), "text/html", "UTF-8", null);
-        } catch (Exception e) {
-            Log.e("HTMLRunner", "Could not open HTML document", e);
-            hasProjectContent = false;
-            showBlankSurface();
-        }
+        final int generation = ++fileLoadGeneration;
+        if (web != null) web.stopLoading();
+
+        fileExecutor.execute(() -> {
+            String html;
+            try (InputStream input = getContentResolver().openInputStream(uri);
+                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                if (input == null) throw new IllegalStateException("Unable to open file");
+                byte[] buffer = new byte[8192];
+                int count;
+                while ((count = input.read(buffer)) != -1) {
+                    if (output.size() + count > MAX_SINGLE_HTML_BYTES) {
+                        throw new IllegalArgumentException("HTML file is larger than the 5 MB limit");
+                    }
+                    output.write(buffer, 0, count);
+                }
+                html = output.toString("UTF-8");
+            } catch (Exception e) {
+                Log.e("HTMLRunner", "Could not open HTML document", e);
+                mainHandler.post(() -> {
+                    if (generation != fileLoadGeneration || isFinishing() || isDestroyed()) return;
+                    hasProjectContent = false;
+                    showBlankSurface();
+                });
+                return;
+            }
+
+            mainHandler.post(() -> {
+                if (generation != fileLoadGeneration || isFinishing() || isDestroyed() || web == null) return;
+                hasProjectContent = true;
+                web.loadDataWithBaseURL("https://" + PROJECT_HOST + "/",
+                        html, "text/html", "UTF-8", null);
+            });
+        });
     }
 
     private WebResourceResponse serveProjectFile(Uri requestUri) {
@@ -427,6 +465,10 @@ public class MainActivity extends Activity {
     }
 
     private Uri findChildDocument(Uri parent, String displayName) {
+        String cacheKey = parent.toString() + "\u0000" + displayName;
+        Uri cached = projectDocumentCache.get(cacheKey);
+        if (cached != null) return cached;
+
         String parentId = DocumentsContract.getDocumentId(parent);
         Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(projectTree, parentId);
         String[] projection = {
@@ -440,8 +482,10 @@ public class MainActivity extends Activity {
             int nameColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
             while (cursor.moveToNext()) {
                 if (displayName.equals(cursor.getString(nameColumn))) {
-                    return DocumentsContract.buildDocumentUriUsingTree(
+                    Uri child = DocumentsContract.buildDocumentUriUsingTree(
                             projectTree, cursor.getString(idColumn));
+                    projectDocumentCache.put(cacheKey, child);
+                    return child;
                 }
             }
         }
@@ -535,6 +579,9 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        fileLoadGeneration++;
+        fileExecutor.shutdownNow();
+        projectDocumentCache.clear();
         if (filePathCallback != null) {
             filePathCallback.onReceiveValue(null);
             filePathCallback = null;

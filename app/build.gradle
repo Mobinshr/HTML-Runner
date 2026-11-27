@@ -10,8 +10,8 @@ android {
         applicationId 'com.mobin.htmlrunner'
         minSdk 24
         targetSdk 35
-        versionCode 8
-        versionName '1.2.0'
+        versionCode 9
+        versionName '1.2.1'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -30,7 +30,12 @@ android {
         }
     }
     buildTypes {
-        release { signingConfig signingConfigs.release }
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
     }
 }
 dependencies {
