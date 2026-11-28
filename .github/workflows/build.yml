@@ -123,6 +123,8 @@ jobs:
 
             Latest Android APK for HTML Runner.
 
+- Automatically removes the downloaded APK after successful installation.
+
             - **Version:** ${{ steps.app_version.outputs.name }}
             - **Package:** com.mobin.htmlrunner
             - Release purpose: verify in-app update delivery.
