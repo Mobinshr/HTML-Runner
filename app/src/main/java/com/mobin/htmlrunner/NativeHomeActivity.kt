@@ -121,6 +121,9 @@ private fun NativeRunnerHome(
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        AppUpdateControl()
+                    }
                 }
             }
             Spacer(Modifier.height(26.dp))

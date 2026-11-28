@@ -126,6 +126,9 @@ jobs:
             - **Version:** ${{ steps.app_version.outputs.name }}
             - **Package:** com.mobin.htmlrunner
             - **File:** app-release.apk
+            - App version: ${{ steps.app_version.outputs.name }}
+            - Version code: ${{ steps.app_version.outputs.code }}
+            - Minimum Android: 7.0 (API 24)
 
             Each release tag represents the app version. Rebuilding the same version updates this release instead of creating another numbered build.
           files: app/build/outputs/apk/release/app-release.apk
