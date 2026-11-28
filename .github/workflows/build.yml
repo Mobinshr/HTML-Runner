@@ -125,6 +125,7 @@ jobs:
 
             - **Version:** ${{ steps.app_version.outputs.name }}
             - **Package:** com.mobin.htmlrunner
+            - Release purpose: verify in-app update delivery.
             - **File:** app-release.apk
             - App version: ${{ steps.app_version.outputs.name }}
             - Version code: ${{ steps.app_version.outputs.code }}
